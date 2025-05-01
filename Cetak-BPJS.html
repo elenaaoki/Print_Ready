@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <title>Cetak Kartu BPJS</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap');
+
+    :root {
+      --primary: #00796B;
+      --primary-dark: #00695C;
+      --secondary: #E0F2F1;
+      --border: #B2DFDB;
+      --red: #F44336;
+      --red-dark: #D32F2F;
+      --green: #4CAF50;
+      --green-dark: #388E3C;
+      --blue: #2196F3;
+      --blue-dark: #1976D2;
+    }
+
+    @media print {
+      body {
+        background: none;
+        margin: 0;
+        padding: 0;
+      }
+      header, .controls, #statusMessage {
+        display: none !important;
+      }
+      #paperContainer {
+        box-shadow: none;
+        margin: 0;
+        padding: 0;
+      }
+      .card-sheet {
+        box-shadow: none;
+        margin: 0;
+        padding: 0;
+      }
+      .card .remove-btn {
+        display: none !important;
+      }
+      .empty-card .remove-btn {
+        display: none !important;
+      }
+    }
+
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background: #f5f5f5;
+    }
+    
+    body.printing {
+      background: white;
+    }
+
+    header {
+      background-color: var(--primary);
+      color: white;
+      padding: 1rem 2rem;
+      text-align: center;
+      font-size: 1.5rem;
+      font-weight: 600;
+      box-shadow: 0 2px 6px rgba(0,0,0,0.1);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .header-title {
+      flex-grow: 1;
+    }
+
+    .controls {
+      background: white;
+      padding: 1.5rem 2rem;
+      margin: 1rem auto;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      width: max-content;
+      max-width: 90%;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1rem;
+      align-items: center;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .controls label {
+      font-weight: 600;
+      margin-right: 0.5rem;
+    }
+
+    input[type="file"] {
+      padding: 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+    }
+
+    .btn {
+      padding: 0.6rem 1.2rem;
+      border: none;
+      border-radius: 5px;
+      font-weight: 500;
+      font-family: 'Inter', sans-serif;
+      cursor: pointer;
+      transition: background-color 0.2s, transform 0.1s;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .btn:hover {
+      transform: translateY(-1px);
+    }
+    
+    .btn:active {
+      transform: translateY(0);
+    }
+
+    .btn-primary {
+      background-color: var(--primary);
+      color: white;
+    }
+    
+    .btn-primary:hover {
+      background-color: var(--primary-dark);
+    }
+
+    .btn-green {
+      background-color: var(--green);
+      color: white;
+    }
+    
+    .btn-green:hover {
+      background-color: var(--green-dark);
+    }
+
+    .btn-blue {
+      background-color: var(--blue);
+      color: white;
+    }
+    
+    .btn-blue:hover {
+      background-color: var(--blue-dark);
+    }
+    
+    .btn svg {
+      width: 18px;
+      height: 18px;
+    }
+
+    .paper-select {
+      padding: 0.6rem;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      font-family: 'Inter', sans-serif;
+    }
+
+    /* F4 Paper (8.5" x 13") */
+    .paper-f4 {
+      width: 21.59cm;
+      height: 33.02cm;
+      margin: 1rem auto;
+    }
+
+    /* A4 Paper (8.27" x 11.69") */
+    .paper-a4 {
+      width: 21cm;
+      height: 29.7cm;
+      margin: 1rem auto;
+    }
+
+    .card-sheet {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 12mm;
+      box-sizing: border-box;
+      background: white;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+      width: 100%;
+      height: 100%;
+    }
+
+    .card-row {
+      display: flex;
+      justify-content: center;
+      width: 100%;
+      gap: 12mm;
+      margin-bottom: 12mm;
+    }
+    
+    /* Remove margin-bottom from the last row */
+    .card-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .card {
+      width: 8.56cm;
+      height: 5.4cm;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background: white;
+      overflow: hidden;
+      page-break-inside: avoid;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      position: relative;
+    }
+
+    .card img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+    }
+
+    .remove-btn {
+      position: absolute;
+      top: 5px;
+      right: 5px;
+      background-color: var(--red);
+      color: white;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: bold;
+      border: none;
+      z-index: 10;
+      transition: background-color 0.2s;
+    }
+
+    .remove-btn:hover {
+      background-color: var(--red-dark);
+    }
+
+    .empty-card {
+      background-color: #f9f9f9;
+      border: 2px dashed var(--border);
+      color: #666;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.9rem;
+    }
+
+    .status-message {
+      text-align: center;
+      padding: 1rem;
+      margin: 1rem auto;
+      color: #555;
+      font-style: italic;
+    }
+    
+    .spacing-control {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .spacing-control input {
+      width: 60px;
+      padding: 0.5rem;
+      border: 1px solid var(--border);
+      border-radius: 5px;
+    }
+    
+    .buttons-group {
+      display: flex;
+      gap: 0.5rem;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-title">Cetak Kartu BPJS</div>
+  </header>
+  
+  <div class="controls">
+    <div class="control-group">
+      <label for="fileUpload">Unggah File PDF:</label>
+      <input type="file" id="fileUpload" accept="application/pdf" multiple>
+    </div>
+    
+    <div class="control-group">
+      <label for="paperSize">Ukuran Kertas:</label>
+      <select id="paperSize" class="paper-select">
+        <option value="f4" selected>F4 (8.5" x 13")</option>
+        <option value="a4">A4 (8.27" x 11.69")</option>
+      </select>
+    </div>
+    
+    <div class="control-group spacing-control">
+      <label for="verticalSpacing">Jarak Vertikal (mm):</label>
+      <input type="number" id="verticalSpacing" value="12" min="0" max="30" step="1">
+    </div>
+    
+    <div class="control-group spacing-control">
+      <label for="horizontalSpacing">Jarak Horizontal (mm):</label>
+      <input type="number" id="horizontalSpacing" value="12" min="0" max="30" step="1">
+    </div>
+    
+    <div class="buttons-group">
+      <button id="addEmptyCardBtn" class="btn btn-primary">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="12" y1="5" x2="12" y2="19"></line>
+          <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        Tambah Kartu Kosong
+      </button>
+      
+      <button id="clearCardsBtn" class="btn btn-green">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="3 6 5 6 21 6"></polyline>
+          <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+        </svg>
+        Bersihkan Semua
+      </button>
+      
+      <button id="printBtn" class="btn btn-blue">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="6 9 6 2 18 2 18 9"></polyline>
+          <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+          <rect x="6" y="14" width="12" height="8"></rect>
+        </svg>
+        Cetak
+      </button>
+	  
+<a href="https://www.chapteria.com" target="_blank" class="btn btn-blue" style="display: inline-flex; align-items: center; gap: 8px; text-decoration: none; padding: 8px 12px; border-radius: 4px; background-color: #000000; color: white;">
+  <img src="https://blogger.googleusercontent.com/img/b/R29vZ2xl/AVvXsEiczboiB5D_jVRjGpoO7G-W72KNSLngpVChKyEb18yKEJqk-3vMgx8_g90k8nc6L6waUNbWvACEDW0T7qa35NU49G5YF1iG70TM1cnjbnrDcfO8kXNBf2eVpqgijszANnJgDBMOdf8I9lJy/s1600/chapteriacom-white2.png" alt="Logo" style="height: 20px;">
+</a>
+
+
+    </div>
+  </div>
+
+  <div id="paperContainer" class="paper-f4">
+    <div id="cardArea" class="card-sheet"></div>
+  </div>
+  
+  <div id="statusMessage" class="status-message">
+    Silakan unggah file PDF atau tambahkan kartu kosong untuk memulai
+  </div>
+
+  <script>
+    // Load PDF.js worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+    
+    // Elements
+    const fileUpload = document.getElementById('fileUpload');
+    const cardArea = document.getElementById('cardArea');
+    const paperSizeSelect = document.getElementById('paperSize');
+    const verticalSpacing = document.getElementById('verticalSpacing');
+    const horizontalSpacing = document.getElementById('horizontalSpacing');
+    const paperContainer = document.getElementById('paperContainer');
+    const printBtn = document.getElementById('printBtn');
+    const addEmptyCardBtn = document.getElementById('addEmptyCardBtn');
+    const clearCardsBtn = document.getElementById('clearCardsBtn');
+    const statusMessage = document.getElementById('statusMessage');
+    
+    // Card data storage
+    let cardsData = [];
+    
+    // Set paper size based on selection
+    paperSizeSelect.addEventListener('change', function() {
+      paperContainer.className = `paper-${this.value}`;
+      renderCards();
+    });
+    
+    // Update spacing when inputs change
+    verticalSpacing.addEventListener('input', renderCards);
+    horizontalSpacing.addEventListener('input', renderCards);
+    
+    // Add empty card
+    addEmptyCardBtn.addEventListener('click', function() {
+      const emptyCardId = `empty-card-${Date.now()}`;
+      cardsData.push({
+        type: 'empty',
+        id: emptyCardId
+      });
+      renderCards();
+      updateStatusMessage();
+    });
+    
+    // Clear all cards
+    clearCardsBtn.addEventListener('click', function() {
+      if (confirm('Apakah Anda yakin ingin menghapus semua kartu?')) {
+        clearCards();
+      }
+    });
+    
+    // Print function
+    printBtn.addEventListener('click', function() {
+      // Prepare for printing
+      document.body.classList.add('printing');
+      setTimeout(() => {
+        window.print();
+        // Remove printing class after print dialog closes
+        setTimeout(() => {
+          document.body.classList.remove('printing');
+        }, 1000);
+      }, 200);
+    });
+    
+    // Clear existing cards
+    function clearCards() {
+      cardsData = [];
+      while (cardArea.firstChild) {
+        cardArea.removeChild(cardArea.firstChild);
+      }
+      updateStatusMessage();
+    }
+    
+    // Process PDF files
+    fileUpload.addEventListener('change', async function(event) {
+      const files = event.target.files;
+      if (files.length === 0) return;
+      
+      statusMessage.textContent = 'Memproses file...';
+      
+      try {
+        for (const file of files) {
+          const fileReader = new FileReader();
+          
+          fileReader.onload = async function() {
+            const typedarray = new Uint8Array(this.result);
+            
+            try {
+              const pdf = await pdfjsLib.getDocument({ data: typedarray }).promise;
+              
+              for (let i = 1; i <= pdf.numPages; i++) {
+                const page = await pdf.getPage(i);
+                const viewport = page.getViewport({ scale: 2 });
+                
+                const canvas = document.createElement('canvas');
+                const context = canvas.getContext('2d');
+                canvas.width = viewport.width;
+                canvas.height = viewport.height;
+                await page.render({ canvasContext: context, viewport }).promise;
+                
+                // Potong jadi dua bagian: depan & belakang
+                const halfWidth = canvas.width / 2;
+                
+                for (let j = 0; j < 2; j++) {
+                  const singleCanvas = document.createElement('canvas');
+                  singleCanvas.width = halfWidth;
+                  singleCanvas.height = canvas.height;
+                  const singleCtx = singleCanvas.getContext('2d');
+                  singleCtx.drawImage(canvas, halfWidth * j, 0, halfWidth, canvas.height, 0, 0, halfWidth, canvas.height);
+                  
+                  // Convert canvas to data URL
+                  const imageDataUrl = singleCanvas.toDataURL('image/png');
+                  
+                  // Store data
+                  cardsData.push({
+                    type: 'image',
+                    dataUrl: imageDataUrl,
+                    id: `card-${Date.now()}-${j}-${i}`
+                  });
+                }
+              }
+              renderCards();
+              updateStatusMessage();
+              
+              // Reset the file input to allow uploading the same file again
+              fileUpload.value = '';
+              
+            } catch (error) {
+              console.error('Error processing PDF:', error);
+              statusMessage.textContent = 'Error: Gagal memproses file PDF. Pastikan file PDF valid.';
+            }
+          };
+          
+          fileReader.readAsArrayBuffer(file);
+        }
+      } catch (error) {
+        console.error('File processing error:', error);
+        statusMessage.textContent = 'Error: Terjadi kesalahan saat memproses file.';
+      }
+    });
+    
+    // Render cards with proper layout
+    function renderCards() {
+      // Clear current layout
+      cardArea.innerHTML = '';
+      
+      if (cardsData.length === 0) {
+        return;
+      }
+      
+      // Get spacing values
+      const vSpacing = parseFloat(verticalSpacing.value) || 12;
+      const hSpacing = parseFloat(horizontalSpacing.value) || 12;
+      
+      // Update sheet padding
+      cardArea.style.padding = `${vSpacing}mm`;
+      
+      // Organize cards into rows (2 cards per row)
+      const rows = Math.ceil(cardsData.length / 2);
+      
+      for (let i = 0; i < rows; i++) {
+        const rowDiv = document.createElement('div');
+        rowDiv.className = 'card-row';
+        rowDiv.style.gap = `${hSpacing}mm`;
+        rowDiv.style.marginBottom = `${vSpacing}mm`;
+        
+        // Add cards to this row
+        for (let j = 0; j < 2; j++) {
+          const cardIndex = i * 2 + j;
+          
+          if (cardIndex < cardsData.length) {
+            const cardData = cardsData[cardIndex];
+            const cardDiv = document.createElement('div');
+            cardDiv.className = 'card';
+            cardDiv.id = cardData.id;
+            
+            if (cardData.type === 'image') {
+              // Create image element
+              const img = document.createElement('img');
+              img.src = cardData.dataUrl;
+              img.alt = 'Kartu BPJS';
+              cardDiv.appendChild(img);
+            } else {
+              // Empty card
+              cardDiv.classList.add('empty-card');
+              cardDiv.innerHTML = '<span>Kartu Kosong</span>';
+            }
+            
+            // Add remove button
+            const removeBtn = document.createElement('button');
+            removeBtn.className = 'remove-btn';
+            removeBtn.textContent = '×';
+            removeBtn.title = 'Hapus Kartu';
+            removeBtn.addEventListener('click', function(e) {
+              e.stopPropagation();
+              const cardId = cardDiv.id;
+              // Remove from data
+              cardsData = cardsData.filter(card => card.id !== cardId);
+              // Re-render all cards
+              renderCards();
+              updateStatusMessage();
+            });
+            
+            cardDiv.appendChild(removeBtn);
+            rowDiv.appendChild(cardDiv);
+          }
+        }
+        
+        cardArea.appendChild(rowDiv);
+      }
+    }
+    
+    // Update status message based on card count
+    function updateStatusMessage() {
+      const cardCount = cardsData.length;
+      if (cardCount === 0) {
+        statusMessage.textContent = 'Silakan unggah file PDF atau tambahkan kartu kosong untuk memulai';
+      } else {
+        statusMessage.textContent = `${cardCount} kartu siap untuk dicetak`;
+      }
+    }
+    
+    // Initialize
+    updateStatusMessage();
+  </script>
+</body>
+</html>
